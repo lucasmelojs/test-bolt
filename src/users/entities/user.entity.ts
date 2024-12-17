@@ -1,6 +1,12 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 
+export enum UserRole {
+  ADMIN = 'admin',
+  USER = 'user',
+  MANAGER = 'manager'
+}
+
 @Entity()
 export class User {
   @PrimaryGeneratedColumn('uuid')
@@ -17,6 +23,13 @@ export class User {
 
   @Column()
   password: string;
+
+  @Column({
+    type: 'enum',
+    enum: UserRole,
+    default: UserRole.USER
+  })
+  role: UserRole;
 
   @Column({ default: true })
   isActive: boolean;
