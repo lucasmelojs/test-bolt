@@ -9,7 +9,6 @@ import { map } from 'rxjs/operators';
 
 export interface Response<T> {
   data: T;
-  timestamp: string;
 }
 
 @Injectable()
@@ -22,6 +21,7 @@ export class TransformInterceptor<T>
     return next.handle().pipe(
       map(data => ({
         data,
+        statusCode: context.switchToHttp().getResponse().statusCode,
         timestamp: new Date().toISOString(),
       })),
     );
