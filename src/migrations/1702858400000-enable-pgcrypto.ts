@@ -5,8 +5,16 @@ export class EnablePgcrypto1702858400000 implements MigrationInterface {
         // Enable pgcrypto extension
         await queryRunner.query('CREATE EXTENSION IF NOT EXISTS pgcrypto;');
         
-        // Add role column to user table
-        await queryRunner.query(`ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "role" VARCHAR(50) NOT NULL DEFAULT 'user';`);
+        // Add role column to user table if it doesn't exist
+        await queryRunner.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='user' AND column_name='role') THEN 
+                    ALTER TABLE "user" ADD COLUMN "role" VARCHAR(50) NOT NULL DEFAULT 'user';
+                END IF;
+            END $$;
+        `);
         
         // Create function to hash password using pgcrypto
         await queryRunner.query(`
@@ -23,8 +31,16 @@ export class EnablePgcrypto1702858400000 implements MigrationInterface {
         // Remove the hash_password function
         await queryRunner.query('DROP FUNCTION IF EXISTS hash_password;');
         
-        // Remove role column
-        await queryRunner.query('ALTER TABLE "user" DROP COLUMN IF EXISTS "role";');
+        // Remove role column if it exists
+        await queryRunner.query(`
+            DO $$ 
+            BEGIN 
+                IF EXISTS (SELECT 1 FROM information_schema.columns 
+                        WHERE table_name='user' AND column_name='role') THEN 
+                    ALTER TABLE "user" DROP COLUMN "role";
+                END IF;
+            END $$;
+        `);
         
         // We don't disable pgcrypto as it might be used by other parts of the application
     }
