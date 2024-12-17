@@ -19,21 +19,26 @@ import { validate } from './config/env.validation';
       isGlobal: true,
       load: [configuration],
       validate,
+      envFilePath: '.env',
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get('database.host'),
-        port: configService.get('database.port'),
-        username: configService.get('database.username'),
-        password: configService.get('database.password'),
-        database: configService.get('database.database'),
-        entities: ['dist/**/*.entity{.ts,.js}'],
-        migrations: ['dist/migrations/*{.ts,.js}'],
-        synchronize: false,
-        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-      }),
+      useFactory: (configService: ConfigService) => {
+        return {
+          type: 'postgres',
+          host: configService.get<string>('database.host'),
+          port: configService.get<number>('database.port'),
+          username: configService.get<string>('database.username'),
+          password: configService.get<string>('database.password'),
+          database: configService.get<string>('database.database'),
+          entities: ['dist/**/*.entity{.ts,.js}'],
+          migrations: ['dist/migrations/*{.ts,.js}'],
+          autoLoadEntities: true,
+          synchronize: process.env.NODE_ENV !== 'production',
+          ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+          logging: process.env.NODE_ENV !== 'production',
+        };
+      },
       inject: [ConfigService],
     }),
     ThrottlerModule.forRootAsync({
@@ -41,8 +46,8 @@ import { validate } from './config/env.validation';
       inject: [ConfigService],
       useFactory: async (config: ConfigService): Promise<ThrottlerModuleOptions> => ({
         throttlers: [{
-          ttl: config.get('rateLimit.ttl') || 60,
-          limit: config.get('rateLimit.limit') || 10
+          ttl: config.get('throttle.ttl', 60),
+          limit: config.get('throttle.limit', 10),
         }],
         ignoreUserAgents: [/^node-superagent.*$/],
       }),
