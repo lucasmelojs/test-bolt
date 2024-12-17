@@ -27,8 +27,8 @@ async function bootstrap() {
   }));
 
   // Exception handling
-  const { httpAdapter } = app.get(HttpAdapterHost);
-  app.useGlobalFilters(new AllExceptionsFilter(httpAdapter));
+  const httpAdapterHost = app.get(HttpAdapterHost);
+  app.useGlobalFilters(new AllExceptionsFilter(httpAdapterHost));
 
   // Swagger documentation
   const config = new DocumentBuilder()
