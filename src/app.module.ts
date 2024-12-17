@@ -40,8 +40,10 @@ import { validate } from './config/env.validation';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: async (config: ConfigService): Promise<ThrottlerModuleOptions> => ({
-        ttl: config.get('rateLimit.ttl'),
-        limit: config.get('rateLimit.limit'),
+        throttlers: [{
+          ttl: config.get('rateLimit.ttl'),
+          limit: config.get('rateLimit.limit'),
+        }],
         ignoreUserAgents: [/^node-superagent.*$/],
       }),
     }),
