@@ -26,10 +26,11 @@ export class UsersService {
     return user;
   }
 
-  async findByEmail(email: string): Promise<User> {
-    return this.usersRepository.findOne({
+  async findByEmail(email: string): Promise<User | null> {
+    const user = await this.usersRepository.findOne({
       where: { email },
       relations: ['tenant'],
     });
+    return user;
   }
 }
