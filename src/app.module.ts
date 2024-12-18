@@ -1,74 +1,51 @@
-import { Module, MiddlewareConsumer, RequestMethod } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ThrottlerModule, ThrottlerModuleOptions } from '@nestjs/throttler';
-import { APP_GUARD } from '@nestjs/core';
-import { AuthModule } from './auth/auth.module';
-import { UsersModule } from './users/users.module';
-import { TenantsModule } from './tenants/tenants.module';
-import { CustomersModule } from './customers/customers.module';
-import { AppointmentsModule } from './appointments/appointments.module';
-import { RolesGuard } from './common/guards/roles.guard';
-import { TenantContextMiddleware } from './common/middleware/tenant-context.middleware';
-import configuration from './config/configuration';
-import { validate } from './config/env.validation';
+import { ThrottlerModule } from '@nestjs/throttler';
+import databaseConfig from './config/database.config';
+import jwtConfig from './config/jwt.config';
+import appConfig from './config/app.config';
+
+// Core Modules
+import { AuthModule } from './modules/auth/auth.module';
+import { TenantModule } from './modules/tenant/tenant.module';
+import { UserModule } from './modules/user/user.module';
+import { ClientModule } from './modules/client/client.module';
+import { ProviderModule } from './modules/provider/provider.module';
 
 @Module({
   imports: [
+    // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [configuration],
-      validate,
-      envFilePath: '.env',
+      load: [databaseConfig, jwtConfig, appConfig],
     }),
+
+    // Database
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => {
-        return {
-          type: 'postgres',
-          host: configService.get<string>('database.host'),
-          port: configService.get<number>('database.port'),
-          username: configService.get<string>('database.username'),
-          password: configService.get<string>('database.password'),
-          database: configService.get<string>('database.database'),
-          entities: ['dist/**/*.entity{.ts,.js}'],
-          migrations: ['dist/migrations/*{.ts,.js}'],
-          autoLoadEntities: true,
-          synchronize: process.env.NODE_ENV !== 'production',
-          ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-          logging: process.env.NODE_ENV !== 'production',
-        };
-      },
+      useFactory: (configService: ConfigService) => ({
+        ...configService.get('database'),
+      }),
       inject: [ConfigService],
     }),
+
+    // Rate Limiting
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: async (config: ConfigService): Promise<ThrottlerModuleOptions> => ({
-        throttlers: [{
-          ttl: config.get('throttle.ttl', 60),
-          limit: config.get('throttle.limit', 10),
-        }],
-        ignoreUserAgents: [/^node-superagent.*$/],
+      useFactory: (config: ConfigService) => ({
+        ttl: config.get('app.rateLimitTtl'),
+        limit: config.get('app.rateLimitLimit'),
       }),
     }),
+
+    // Feature Modules
     AuthModule,
-    UsersModule,
-    TenantsModule,
-    CustomersModule,
-    AppointmentsModule,
-  ],
-  providers: [
-    {
-      provide: APP_GUARD,
-      useClass: RolesGuard,
-    },
+    TenantModule,
+    UserModule,
+    ClientModule,
+    ProviderModule,
   ],
 })
-export class AppModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(TenantContextMiddleware)
-      .forRoutes({ path: '*', method: RequestMethod.ALL });
-  }
-}
+export class AppModule {}
