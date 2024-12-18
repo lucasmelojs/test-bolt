@@ -1,7 +1,7 @@
-import { Module } from '@nestjs/common';
+import { Module, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule, ThrottlerModuleOptions } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 
 // Config imports
@@ -10,18 +10,18 @@ import jwtConfig from './config/jwt.config';
 import appConfig from './config/app.config';
 
 // Core Modules
-import { AuthModule } from './modules/auth/auth.module';
-import { TenantModule } from './modules/tenant/tenant.module';
-import { UserModule } from './modules/user/user.module';
-import { ClientModule } from './modules/client/client.module';
-import { ProviderModule } from './modules/provider/provider.module';
-import { ServiceModule } from './modules/service/service.module';
-import { AppointmentModule } from './modules/appointment/appointment.module';
-import { AvailabilityModule } from './modules/availability/availability.module';
+import { AuthModule } from './auth/auth.module';
+import { TenantModule } from './tenant/tenant.module';
+import { UserModule } from './user/user.module';
+import { ClientModule } from './client/client.module';
+import { ProviderModule } from './provider/provider.module';
+import { ServiceModule } from './service/service.module';
+import { AppointmentModule } from './appointment/appointment.module';
+import { AvailabilityModule } from './availability/availability.module';
 
 // Guards
-import { JwtAuthGuard } from './modules/auth/guards/jwt.guard';
-import { RolesGuard } from './modules/auth/guards/roles.guard';
+import { JwtAuthGuard } from './auth/guards/jwt.guard';
+import { RolesGuard } from './auth/guards/roles.guard';
 import { ThrottlerBehindProxyGuard } from './common/guards/throttler-proxy.guard';
 
 // Middleware
@@ -49,9 +49,9 @@ import { TenantContextMiddleware } from './common/middleware/tenant-context.midd
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        ttl: config.get('app.rateLimitTtl'),
-        limit: config.get('app.rateLimitLimit'),
+      useFactory: async (config: ConfigService): Promise<ThrottlerModuleOptions> => ({
+        ttl: config.get<number>('app.rateLimitTtl'),
+        limit: config.get<number>('app.rateLimitLimit'),
       }),
     }),
 
@@ -82,7 +82,7 @@ import { TenantContextMiddleware } from './common/middleware/tenant-context.midd
   ],
 })
 export class AppModule {
-  configure(consumer) {
+  configure(consumer: MiddlewareConsumer): void {
     consumer
       .apply(TenantContextMiddleware)
       .forRoutes('*');
