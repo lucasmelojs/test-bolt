@@ -1,11 +1,13 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Controller, Post, Body, HttpCode, HttpStatus, Get, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
-import { TokenResponseDto } from './dto/token.dto';
+import { AuthUserDto, TokenResponseDto } from './dto/auth-response.dto';
 import { Public } from './decorators/public.decorator';
 import { SkipTenantCheck } from './decorators/skip-tenant.decorator';
+import { CurrentUser } from './decorators/user.decorator';
+import { JwtAuthGuard } from './guards/jwt.guard';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -37,5 +39,18 @@ export class AuthController {
   })
   async refreshToken(@Body() refreshTokenDto: RefreshTokenDto): Promise<TokenResponseDto> {
     return this.authService.refreshToken(refreshTokenDto);
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get current user information' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Returns current user information',
+    type: AuthUserDto 
+  })
+  async getCurrentUser(@CurrentUser() user: AuthUserDto): Promise<AuthUserDto> {
+    return user;
   }
 }
