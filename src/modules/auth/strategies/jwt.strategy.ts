@@ -16,13 +16,17 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get('JWT_SECRET'),
+      secretOrKey: configService.get('jwt.secret'),
     });
   }
 
   async validate(payload: any) {
     const user = await this.userRepository.findOne({
-      where: { id: payload.sub, isActive: true },
+      where: { 
+        id: payload.sub, 
+        isActive: true,
+        deletedAt: null
+      },
       relations: ['tenant'],
     });
 
@@ -30,6 +34,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException();
     }
 
-    return user;
+    if (user.tenant && !user.tenant.isActive) {
+      throw new UnauthorizedException('Tenant is inactive');
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      tenantId: user.tenant?.id,
+    };
   }
 }
