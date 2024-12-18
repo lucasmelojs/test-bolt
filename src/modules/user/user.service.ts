@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Connection } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { User } from '../../entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -11,7 +11,7 @@ export class UserService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    private readonly connection: Connection,
+    private readonly dataSource: DataSource,
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
@@ -23,7 +23,7 @@ export class UserService {
       throw new ConflictException('User with this email already exists');
     }
 
-    const queryRunner = this.connection.createQueryRunner();
+    const queryRunner = this.dataSource.createQueryRunner();
     try {
       await queryRunner.connect();
       await queryRunner.startTransaction();
@@ -41,6 +41,8 @@ export class UserService {
       const savedUser = await queryRunner.manager.save(user);
       await queryRunner.commitTransaction();
 
+      // Remove password from response
+      delete savedUser.password;
       return savedUser;
     } catch (err) {
       await queryRunner.rollbackTransaction();
@@ -56,10 +58,11 @@ export class UserService {
     const skip = (page - 1) * limit;
 
     const queryBuilder = this.userRepository.createQueryBuilder('user')
-      .where('user.deletedAt IS NULL');
+      .where('user.deletedAt IS NULL')
+      .leftJoinAndSelect('user.tenant', 'tenant');
 
     if (tenantId) {
-      queryBuilder.andWhere('user.tenantId = :tenantId', { tenantId });
+      queryBuilder.andWhere('tenant.id = :tenantId', { tenantId });
     }
 
     const [users, total] = await queryBuilder
@@ -67,6 +70,9 @@ export class UserService {
       .take(limit)
       .orderBy('user.createdAt', 'DESC')
       .getManyAndCount();
+
+    // Remove passwords from response
+    users.forEach(user => delete user.password);
 
     return {
       data: users,
@@ -88,11 +94,19 @@ export class UserService {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
 
+    // Remove password from response
+    delete user.password;
     return user;
   }
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
-    const user = await this.findOne(id);
+    const user = await this.userRepository.findOne({
+      where: { id, deletedAt: null },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
 
     if (updateUserDto.email && updateUserDto.email !== user.email) {
       const existingUser = await this.userRepository.findOne({
@@ -105,7 +119,11 @@ export class UserService {
     }
 
     Object.assign(user, updateUserDto);
-    return await this.userRepository.save(user);
+    const savedUser = await this.userRepository.save(user);
+    
+    // Remove password from response
+    delete savedUser.password;
+    return savedUser;
   }
 
   async remove(id: string): Promise<void> {
@@ -116,15 +134,13 @@ export class UserService {
   }
 
   async updatePassword(userId: string, oldPassword: string, newPassword: string): Promise<void> {
-    const user = await this.findOne(userId);
-    
-    const queryRunner = this.connection.createQueryRunner();
+    const queryRunner = this.dataSource.createQueryRunner();
     try {
       await queryRunner.connect();
       await queryRunner.startTransaction();
 
       const isValid = await queryRunner.query(
-        `SELECT (password = crypt($1, password)) as valid FROM users WHERE id = $2`,
+        `SELECT (password = crypt($1, password)) as valid FROM users WHERE id = $2 AND is_active = true`,
         [oldPassword, userId]
       );
 
@@ -138,7 +154,7 @@ export class UserService {
       );
 
       await queryRunner.query(
-        `UPDATE users SET password = $1 WHERE id = $2`,
+        `UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2`,
         [hashedPassword[0].hash, userId]
       );
 
@@ -149,5 +165,13 @@ export class UserService {
     } finally {
       await queryRunner.release();
     }
+  }
+
+  async findByEmail(email: string): Promise<User | undefined> {
+    const user = await this.userRepository.findOne({
+      where: { email, isActive: true, deletedAt: null },
+      relations: ['tenant'],
+    });
+    return user;
   }
 }
