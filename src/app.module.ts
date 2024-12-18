@@ -9,26 +9,23 @@ import databaseConfig from './config/database.config';
 import jwtConfig from './config/jwt.config';
 import appConfig from './config/app.config';
 
-// Entity imports
-import { Tenant } from './entities/tenant.entity';
-import { User } from './entities/user.entity';
-import { Client } from './entities/client.entity';
-import { Provider } from './entities/provider.entity';
-import { Service } from './entities/service.entity';
-import { Appointment } from './entities/appointment.entity';
-import { Availability } from './entities/availability.entity';
-
 // Core Modules
 import { AuthModule } from './modules/auth/auth.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { UserModule } from './modules/user/user.module';
 import { ClientModule } from './modules/client/client.module';
 import { ProviderModule } from './modules/provider/provider.module';
+import { ServiceModule } from './modules/service/service.module';
+import { AppointmentModule } from './modules/appointment/appointment.module';
+import { AvailabilityModule } from './modules/availability/availability.module';
 
 // Guards
 import { JwtAuthGuard } from './modules/auth/guards/jwt.guard';
 import { RolesGuard } from './modules/auth/guards/roles.guard';
 import { ThrottlerBehindProxyGuard } from './common/guards/throttler-proxy.guard';
+
+// Middleware
+import { TenantContextMiddleware } from './common/middleware/tenant-context.middleware';
 
 @Module({
   imports: [
@@ -43,15 +40,6 @@ import { ThrottlerBehindProxyGuard } from './common/guards/throttler-proxy.guard
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         ...configService.get('database'),
-        entities: [
-          Tenant,
-          User,
-          Client,
-          Provider,
-          Service,
-          Appointment,
-          Availability,
-        ],
         autoLoadEntities: true,
       }),
       inject: [ConfigService],
@@ -73,6 +61,9 @@ import { ThrottlerBehindProxyGuard } from './common/guards/throttler-proxy.guard
     UserModule,
     ClientModule,
     ProviderModule,
+    ServiceModule,
+    AppointmentModule,
+    AvailabilityModule,
   ],
   providers: [
     // Global Guards
@@ -90,4 +81,10 @@ import { ThrottlerBehindProxyGuard } from './common/guards/throttler-proxy.guard
     },
   ],
 })
-export class AppModule {}
+export class AppModule {
+  configure(consumer) {
+    consumer
+      .apply(TenantContextMiddleware)
+      .forRoutes('*');
+  }
+}
