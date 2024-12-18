@@ -10,18 +10,18 @@ import jwtConfig from './config/jwt.config';
 import appConfig from './config/app.config';
 
 // Core Modules
-import { AuthModule } from './auth/auth.module';
-import { TenantModule } from './tenant/tenant.module';
-import { UserModule } from './user/user.module';
-import { ClientModule } from './client/client.module';
-import { ProviderModule } from './provider/provider.module';
-import { ServiceModule } from './service/service.module';
-import { AppointmentModule } from './appointment/appointment.module';
-import { AvailabilityModule } from './availability/availability.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { TenantModule } from './modules/tenant/tenant.module';
+import { UserModule } from './modules/user/user.module';
+import { ClientModule } from './modules/client/client.module';
+import { ProviderModule } from './modules/provider/provider.module';
+import { ServiceModule } from './modules/service/service.module';
+import { AppointmentModule } from './modules/appointment/appointment.module';
+import { AvailabilityModule } from './modules/availability/availability.module';
 
 // Guards
-import { JwtAuthGuard } from './auth/guards/jwt.guard';
-import { RolesGuard } from './auth/guards/roles.guard';
+import { JwtAuthGuard } from './modules/auth/guards/jwt.guard';
+import { RolesGuard } from './modules/auth/guards/roles.guard';
 import { ThrottlerBehindProxyGuard } from './common/guards/throttler-proxy.guard';
 
 // Middleware
