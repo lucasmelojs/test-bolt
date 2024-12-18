@@ -8,16 +8,15 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM node:18-alpine
+FROM node:18-alpine AS production
 
 WORKDIR /app
 
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
 COPY package*.json ./
+RUN npm ci --only=production
 
-ENV NODE_ENV=production
+COPY --from=builder /app/dist ./dist
+COPY .env.example ./.env
 
 EXPOSE 3000
-
-CMD ["npm", "run", "start:prod"]
+CMD ["node", "dist/main"]
